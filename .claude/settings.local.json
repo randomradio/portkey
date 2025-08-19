@@ -6,7 +6,8 @@
       "Bash(cargo test)",
       "Bash(cargo test:*)",
       "Bash(chmod:*)",
-      "Bash(./target/release/portkey:*)"
+      "Bash(./target/release/portkey:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

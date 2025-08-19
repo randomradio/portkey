@@ -49,53 +49,84 @@ impl Vault {
         self.data_path.exists()
     }
 
-    pub fn unlock(&mut self, password: &str) -> Result<()> {
+    pub fn unlock(&mut self, password: Option<&str>) -> Result<()> {
         if !self.exists() {
             return Err(anyhow::anyhow!("Vault does not exist"));
         }
 
         let vault_file = self.load_vault_file()?;
-        let master_key = MasterKey::from_password(password, &vault_file.salt)?;
         
-        let decrypted_data = master_key.decrypt(&vault_file.ciphertext, &vault_file.nonce)?;
-        let vault_data: VaultData = serde_json::from_slice(&decrypted_data)
-            .context("Failed to deserialize vault data")?;
+        // Try to decrypt with password if provided
+        if let Some(password) = password {
+            let master_key = MasterKey::from_password(password, &vault_file.salt)?;
+            
+            // Check if this looks like encrypted data by attempting decryption
+            let decrypted_data = master_key.decrypt(&vault_file.ciphertext, &vault_file.nonce)?;
+            let vault_data: VaultData = serde_json::from_slice(&decrypted_data)
+                .context("Failed to deserialize vault data")?;
 
-        self.master_key = Some(master_key);
-        self.data = Some(vault_data);
+            self.master_key = Some(master_key);
+            self.data = Some(vault_data);
+        } else {
+            // No password provided, assume unencrypted vault
+            let vault_data: VaultData = serde_json::from_slice(&vault_file.ciphertext)
+                .context("Failed to deserialize vault data - try providing a password")?;
+            
+            self.master_key = None;
+            self.data = Some(vault_data);
+        }
 
         Ok(())
     }
 
-    pub fn create(&mut self, password: &str) -> Result<()> {
+    pub fn create(&mut self, password: Option<&str>) -> Result<()> {
         if self.exists() {
             return Err(anyhow::anyhow!("Vault already exists"));
         }
 
-        let salt = generate_salt();
-        let master_key = MasterKey::from_password(password, &salt)?;
-        
         let vault_data = VaultData::new();
         let serialized = serde_json::to_vec(&vault_data)?;
-        let (nonce, ciphertext) = master_key.encrypt(&serialized);
 
-        let vault_file = VaultFile {
-            salt,
-            nonce,
-            ciphertext,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+        let vault_file = if let Some(password) = password {
+            // Password-protected vault
+            let salt = generate_salt();
+            let master_key = MasterKey::from_password(password, &salt)?;
+            let (nonce, ciphertext) = master_key.encrypt(&serialized);
+            
+            VaultFile {
+                salt,
+                nonce,
+                ciphertext,
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+            }
+        } else {
+            // Unencrypted vault (no password)
+            let salt = generate_salt(); // Still use salt for consistency
+            let nonce = secretbox::gen_nonce();
+            
+            VaultFile {
+                salt,
+                nonce,
+                ciphertext: serialized, // Store data unencrypted
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+            }
         };
 
         self.save_vault_file(&vault_file)?;
-        self.master_key = Some(master_key);
+        
+        if password.is_some() {
+            let master_key = MasterKey::from_password(password.unwrap(), &vault_file.salt)?;
+            self.master_key = Some(master_key);
+        }
         self.data = Some(vault_data);
 
         Ok(())
     }
 
     pub fn is_unlocked(&self) -> bool {
-        self.master_key.is_some() && self.data.is_some()
+        self.data.is_some()
     }
 
     pub fn add_server(&mut self, server: Server) -> Result<()> {
@@ -170,17 +201,30 @@ impl Vault {
 
     fn save(&mut self) -> Result<()> {
         let data = self.data.as_ref().unwrap();
-        let master_key = self.master_key.as_ref().unwrap();
-        
         let serialized = serde_json::to_vec(data)?;
-        let (nonce, ciphertext) = master_key.encrypt(&serialized);
-        
-        let vault_file = VaultFile {
-            salt: generate_salt(), // Generate new salt for each save
-            nonce,
-            ciphertext,
-            created_at: self.load_vault_file().map(|f| f.created_at).unwrap_or_else(|_| Utc::now()),
-            updated_at: Utc::now(),
+
+        let vault_file = if let Some(master_key) = &self.master_key {
+            // Encrypted vault
+            let (nonce, ciphertext) = master_key.encrypt(&serialized);
+            VaultFile {
+                salt: generate_salt(),
+                nonce,
+                ciphertext,
+                created_at: self.load_vault_file().map(|f| f.created_at).unwrap_or_else(|_| Utc::now()),
+                updated_at: Utc::now(),
+            }
+        } else {
+            // Unencrypted vault
+            let salt = generate_salt();
+            let nonce = secretbox::gen_nonce();
+            
+            VaultFile {
+                salt,
+                nonce,
+                ciphertext: serialized, // Store unencrypted
+                created_at: self.load_vault_file().map(|f| f.created_at).unwrap_or_else(|_| Utc::now()),
+                updated_at: Utc::now(),
+            }
         };
         
         self.save_vault_file(&vault_file)?;

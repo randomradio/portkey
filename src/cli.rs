@@ -86,13 +86,27 @@ impl CliHandler {
             }
         }
 
-        let password = Password::new("Enter master password:")
-            .with_display_toggle_enabled()
-            .with_custom_confirmation_message("Confirm master password:")
+        let use_password = Confirm::new("Would you like to protect your vault with a master password?")
+            .with_default(true)
             .prompt()?;
 
-        self.vault.create(&password)?;
-        println!("Vault created successfully!");
+        let password = if use_password {
+            Password::new("Enter master password:")
+                .with_display_toggle_enabled()
+                .prompt()?
+        } else {
+            println!("Creating vault without password protection...");
+            String::new()
+        };
+
+        let password_opt = if password.is_empty() { None } else { Some(password.as_str()) };
+        self.vault.create(password_opt)?;
+        
+        if use_password {
+            println!("🔒 Vault created with password protection!");
+        } else {
+            println!("✅ Vault created without password protection!");
+        }
 
         Ok(())
     }
@@ -334,12 +348,21 @@ impl CliHandler {
         }
 
         if !self.vault.is_unlocked() {
-            let password = Password::new("Enter master password:")
-                .with_display_toggle_enabled()
-                .prompt()?;
-            
-            self.vault.unlock(&password)?;
-            println!("Vault unlocked!");
+            // Try to unlock with no password first (for unencrypted vaults)
+            match self.vault.unlock(None) {
+                Ok(_) => {
+                    println!("Vault unlocked (no password required)!");
+                }
+                Err(_) => {
+                    // Encrypted vault - prompt for password
+                    let password = Password::new("Enter master password:")
+                        .with_display_toggle_enabled()
+                        .prompt()?;
+                    
+                    self.vault.unlock(Some(&password))?;
+                    println!("Vault unlocked!");
+                }
+            }
         }
 
         Ok(())
