@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo new:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo test)",
+      "Bash(cargo test:*)",
+      "Bash(chmod:*)",
+      "Bash(./target/release/portkey:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
