@@ -1,10 +1,12 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use inquire::{Confirm, Password, Select, Text};
-use std::process::Command;
 
 use crate::models::Server;
 use crate::vault::Vault;
+use crate::tui;
+use crate::ssh;
+use fuzzy_matcher::FuzzyMatcher;
 
 #[derive(Parser)]
 #[command(name = "portkey")]
@@ -45,6 +47,16 @@ pub enum Commands {
     Search {
         query: String,
     },
+
+    /// Export SSH config entries for servers
+    SshConfig {
+        /// Actually write to ~/.ssh/config instead of printing
+        #[arg(long)]
+        write: bool,
+    },
+
+    /// Full-screen TUI application
+    Ui,
 }
 
 pub struct CliHandler {
@@ -68,6 +80,8 @@ impl CliHandler {
             Some(Commands::Remove { name }) => self.handle_remove(name).await?,
             Some(Commands::Quick) => self.handle_quick().await?,
             Some(Commands::Search { query }) => self.handle_search(query).await?,
+            Some(Commands::SshConfig { write }) => self.handle_ssh_config(write).await?,
+            Some(Commands::Ui) => self.handle_interactive().await?,
             None => self.handle_interactive().await?,
         }
 
@@ -225,44 +239,23 @@ impl CliHandler {
     }
 
     async fn handle_quick(&mut self) -> Result<()> {
-        self.ensure_unlocked().await?;
-
-        let servers = self.vault.list_servers()?;
-        if servers.is_empty() {
-            println!("No servers available.");
-            return Ok(());
-        }
-
-        let options: Vec<String> = servers
-            .iter()
-            .map(|s| format!("{}@{}:{}", s.username, s.host, s.port))
-            .collect();
-
-        let selection = Select::new("Select server to connect:", options).prompt()?;
-        
-        let index = servers.iter().position(|s| 
-            format!("{}@{}:{}", s.username, s.host, s.port) == selection
-        ).unwrap();
-        
-        let server = &servers[index];
-        self.connect_to_server(server).await
+        // Quick now just launches the full TUI
+        self.handle_interactive().await
     }
 
     async fn handle_search(&mut self, query: String) -> Result<()> {
         self.ensure_unlocked().await?;
 
         let servers = self.vault.list_servers()?;
-        let query = query.to_lowercase();
-
-        let matches: Vec<&Server> = servers
+        let matcher = fuzzy_matcher::skim::SkimMatcherV2::default();
+        let mut matches: Vec<(&Server, i64)> = servers
             .iter()
-            .filter(|s| 
-                s.name.to_lowercase().contains(&query) ||
-                s.host.to_lowercase().contains(&query) ||
-                s.username.to_lowercase().contains(&query) ||
-                s.description.as_ref().map_or(false, |d| d.to_lowercase().contains(&query))
-            )
+            .filter_map(|s| {
+                let hay = format!("{} {} {} {} {}", s.name, s.host, s.username, s.port, s.description.as_deref().unwrap_or(""));
+                matcher.fuzzy_match(&hay, &query).map(|score| (s, score))
+            })
             .collect();
+        matches.sort_by(|a, b| b.1.cmp(&a.1));
 
         if matches.is_empty() {
             println!("No servers match your search.");
@@ -272,7 +265,7 @@ impl CliHandler {
         println!("Search results:");
         println!("{:-<60}", "");
         
-        for server in matches {
+        for (server, _) in matches {
             println!("Name: {}", server.name);
             println!("Host: {}:{}", server.host, server.port);
             println!("User: {}", server.username);
@@ -285,61 +278,48 @@ impl CliHandler {
         Ok(())
     }
 
+    async fn handle_ssh_config(&mut self, write: bool) -> Result<()> {
+        self.ensure_unlocked().await?;
+        let servers = self.vault.list_servers()?;
+
+        let mut output = String::new();
+        for s in servers {
+            output.push_str(&format!(
+                "Host {}\n  HostName {}\n  User {}\n  Port {}\n\n",
+                s.name, s.host, s.username, s.port
+            ));
+        }
+
+        if write {
+            let mut path = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Home directory not found"))?;
+            path.push(".ssh");
+            std::fs::create_dir_all(&path)?;
+            path.push("config");
+
+            // Append entries; avoid overwriting existing unrelated entries.
+            use std::fs::OpenOptions;
+            use std::io::Write;
+            let mut file = OpenOptions::new().create(true).append(true).open(&path)?;
+            writeln!(file, "\n# Portkey managed entries")?;
+            write!(file, "{}", output)?;
+            println!("Written SSH config entries to {}", path.display());
+        } else {
+            println!("# Preview: add these to ~/.ssh/config\n{}", output);
+        }
+
+        println!("Note: SSH config does not store passwords. Consider setting up SSH keys.");
+        Ok(())
+    }
+
     async fn handle_interactive(&mut self) -> Result<()> {
         if !self.vault.exists() {
             println!("No vault found. Run 'portkey init' to create one.");
             return Ok(());
         }
 
+        // Unlock before entering raw mode
         self.ensure_unlocked().await?;
-
-        loop {
-            let options = vec![
-                "Add server",
-                "List servers", 
-                "Connect to server",
-                "Remove server",
-                "Search servers",
-                "Exit",
-            ];
-
-            let selection = Select::new("What would you like to do?", options).prompt()?;
-
-            match selection {
-                "Add server" => self.handle_add().await?,
-                "List servers" => self.handle_list().await?,
-                "Connect to server" => self.handle_quick().await?,
-                "Remove server" => {
-                    let servers = self.vault.list_servers()?;
-                    if servers.is_empty() {
-                        println!("No servers to remove.");
-                        continue;
-                    }
-
-                    let options: Vec<String> = servers
-                        .iter()
-                        .map(|s| format!("{} ({})", s.name, s.host))
-                        .collect();
-
-                    if let Ok(selection) = Select::new("Select server to remove:", options).prompt() {
-                        let index = servers.iter().position(|s| 
-                            format!("{} ({})", s.name, s.host) == selection
-                        ).unwrap();
-                        
-                        let server = &servers[index];
-                        self.handle_remove(server.name.clone()).await?;
-                    }
-                },
-                "Search servers" => {
-                    let query = Text::new("Search query:").prompt()?;
-                    self.handle_search(query).await?;
-                },
-                "Exit" => break,
-                _ => unreachable!(),
-            }
-        }
-
-        Ok(())
+        tui::run_full_ui(&mut self.vault).map_err(|e| anyhow::anyhow!(e))
     }
 
     async fn ensure_unlocked(&mut self) -> Result<()> {
@@ -382,49 +362,6 @@ impl CliHandler {
     async fn connect_to_server(&self, 
         server: &Server
     ) -> Result<()> {
-        println!("Connecting to {}@{}:{}...", server.username, server.host, server.port);
-        
-        // Check if sshpass is available
-        let sshpass_check = Command::new("which").arg("sshpass").output();
-        let sshpass_available = sshpass_check.is_ok() && sshpass_check.unwrap().status.success();
-
-        if !sshpass_available {
-            eprintln!("❌ sshpass is not installed or not in PATH.");
-            eprintln!("");
-            eprintln!("Install sshpass to use password authentication:");
-            eprintln!("  macOS: brew install hudochenkov/sshpass/sshpass");
-            eprintln!("  Ubuntu/Debian: sudo apt-get install sshpass");
-            eprintln!("  CentOS/RHEL: sudo yum install sshpass");
-            eprintln!("  Arch: sudo pacman -S sshpass");
-            eprintln!("");
-            eprintln!("Alternatively, connect manually:");
-            eprintln!("  ssh {}@{} -p {}", server.username, server.host, server.port);
-            eprintln!("  Password: {}", server.password);
-            
-            return Ok(());
-        }
-
-        // Use sshpass for password authentication
-        let status = Command::new("sshpass")
-            .arg("-p")
-            .arg(&server.password)
-            .arg("ssh")
-            .arg(format!("{}@{}", server.username, server.host))
-            .arg("-p")
-            .arg(server.port.to_string())
-            .arg("-o")
-            .arg("StrictHostKeyChecking=no")
-            .status()?;
-
-        if !status.success() {
-            eprintln!("❌ SSH connection failed.");
-            eprintln!("Possible causes:");
-            eprintln!("  - Server is not reachable");
-            eprintln!("  - Invalid credentials");
-            eprintln!("  - SSH service is not running");
-            eprintln!("  - Port is blocked by firewall");
-        }
-
-        Ok(())
+        ssh::connect(server)
     }
 }

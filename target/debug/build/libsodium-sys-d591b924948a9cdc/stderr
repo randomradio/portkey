@@ -1,6 +1,7 @@
 rm: conftest.dSYM: is a directory
 rm: conftest.dSYM: is a directory
 rm: conftest.dSYM: is a directory
+configure: WARNING: On this platform, segmentation violations cannot be caught using signal handlers. This is expected if you enabled a tool such as Address Sanitizer (-fsanitize=address), but be aware that using Address Sanitizer may also significantly reduce performance.
 In file included from crypto_sign/ed25519/ref10/obsolete.c:9:
 In file included from ./include/sodium/private/ed25519_ref10.h:23:
 ./include/sodium/private/ed25519_ref10_fe_51.h:109:1: warning: unused function 'fe25519_cmov' [-Wunused-function]
@@ -46,10 +47,15 @@ crypto_core/ed25519/ref10/ed25519_ref10.c:508:1: warning: unused function 'ge255
   508 | ge25519_p3_to_precomp(ge25519_precomp *pi, const ge25519_p3 *p)
       | ^~~~~~~~~~~~~~~~~~~~~
 2 warnings generated.
+In file included from crypto_pwhash/argon2/argon2-encoding.c:2:
+crypto_pwhash/argon2/argon2-core.h:139:17: warning: unused function 'index_alpha' [-Wunused-function]
+  139 | static uint32_t index_alpha(const argon2_instance_t *instance,
+      |                 ^~~~~~~~~~~
 In file included from crypto_pwhash/argon2/argon2-core.c:31:
 crypto_pwhash/argon2/argon2-core.h:139:17: warning: unused function 'index_alpha' [-Wunused-function]
   139 | static uint32_t index_alpha(const argon2_instance_t *instance,
       |                 ^~~~~~~~~~~
+1 warning generated.
 1 warning generated.
 crypto_pwhash/argon2/argon2-fill-block-ref.c:199:9: warning: unknown pragma ignored [-Wunknown-pragmas]
   199 | #pragma warning(push)
@@ -61,11 +67,6 @@ crypto_pwhash/argon2/argon2-fill-block-ref.c:202:9: warning: unknown pragma igno
   202 | #pragma warning(pop)
       |         ^
 3 warnings generated.
-In file included from crypto_pwhash/argon2/argon2-encoding.c:2:
-crypto_pwhash/argon2/argon2-core.h:139:17: warning: unused function 'index_alpha' [-Wunused-function]
-  139 | static uint32_t index_alpha(const argon2_instance_t *instance,
-      |                 ^~~~~~~~~~~
-1 warning generated.
 In file included from crypto_pwhash/argon2/argon2.c:22:
 crypto_pwhash/argon2/argon2-core.h:139:17: warning: unused function 'index_alpha' [-Wunused-function]
   139 | static uint32_t index_alpha(const argon2_instance_t *instance,
@@ -237,9 +238,9 @@ In file included from ./include/sodium/private/ed25519_ref10.h:23:
 libtool: warning: '-version-info/-version-number' is ignored for convenience libraries
 libtool: warning: '-version-info/-version-number' is ignored for convenience libraries
 warning: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib: archive library: .libs/libsse41.a the table of contents is empty (no object file members in the library define global symbols)
+warning: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib: archive library: .libs/libavx2.a the table of contents is empty (no object file members in the library define global symbols)
 libtool: warning: '-version-info/-version-number' is ignored for convenience libraries
 warning: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib: archive library: .libs/libavx512f.a the table of contents is empty (no object file members in the library define global symbols)
-warning: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib: archive library: .libs/libavx2.a the table of contents is empty (no object file members in the library define global symbols)
 crypto_aead/aes256gcm/aesni/aead_aes256gcm_aesni.c:923:55: warning: unused parameter 'c' [-Wunused-parameter]
   923 | crypto_aead_aes256gcm_encrypt_detached(unsigned char *c,
       |                                                       ^
@@ -482,11 +483,11 @@ libtool: warning: '-version-info/-version-number' is ignored for convenience lib
 scalarmult2.c:16:19: warning: unused variable 'i' [-Wunused-variable]
    16 |     int           i;
       |                   ^
-1 warning generated.
 scalarmult5.c:22:19: warning: unused variable 'i' [-Wunused-variable]
    22 |     int           i;
       |                   ^
 1 warning generated.
+1 warning generated.
 clang: warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]
 clang: warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]
 clang: warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]
@@ -521,8 +522,8 @@ clang: warning: argument unused during compilation: '-pie' [-Wunused-command-lin
 clang: warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]
 clang: warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]
 clang: warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]
-clang: warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]
-clang: warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]
+clangclang: : warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]
+warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]
 clang: warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]
 clang: warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]
 clang: warning: argument unused during compilation: '-pie' [-Wunused-command-line-argument]

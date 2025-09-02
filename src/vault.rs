@@ -164,6 +164,14 @@ impl Vault {
         Ok(self.data.as_ref().unwrap().find_server(id))
     }
 
+    pub fn replace_server(&mut self, server: Server) -> Result<bool> {
+        self.ensure_unlocked()?;
+        let data = self.data.as_mut().unwrap();
+        let replaced = data.replace_server(server);
+        if replaced { self.save()?; }
+        Ok(replaced)
+    }
+
     pub fn vault_path(&self) -> &PathBuf {
         &self.data_path
     }
@@ -204,13 +212,16 @@ impl Vault {
         let serialized = serde_json::to_vec(data)?;
 
         let vault_file = if let Some(master_key) = &self.master_key {
-            // Encrypted vault
+            // Encrypted vault: reuse existing salt to keep key derivation stable
+            let existing = self.load_vault_file().ok();
+            let salt = existing.as_ref().map(|f| f.salt).unwrap_or_else(generate_salt);
+
             let (nonce, ciphertext) = master_key.encrypt(&serialized);
             VaultFile {
-                salt: generate_salt(),
+                salt,
                 nonce,
                 ciphertext,
-                created_at: self.load_vault_file().map(|f| f.created_at).unwrap_or_else(|_| Utc::now()),
+                created_at: existing.map(|f| f.created_at).unwrap_or_else(|| Utc::now()),
                 updated_at: Utc::now(),
             }
         } else {

@@ -43,6 +43,24 @@ impl Server {
     pub fn ssh_command(&self) -> String {
         format!("ssh {}@{} -p {}", self.username, self.host, self.port)
     }
+
+    pub fn update_fields(
+        &mut self,
+        name: String,
+        host: String,
+        port: u16,
+        username: String,
+        password: String,
+        description: Option<String>,
+    ) {
+        self.name = name;
+        self.host = host;
+        self.port = port;
+        self.username = username;
+        self.password = password;
+        self.description = description;
+        self.updated_at = Utc::now();
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,5 +93,14 @@ impl VaultData {
 
     pub fn list_servers(&self) -> &Vec<Server> {
         &self.servers
+    }
+
+    pub fn replace_server(&mut self, server: Server) -> bool {
+        if let Some(pos) = self.servers.iter().position(|s| s.id == server.id) {
+            self.servers[pos] = server;
+            true
+        } else {
+            false
+        }
     }
 }

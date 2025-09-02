@@ -1,4 +1,7 @@
 configure: WARNING: On this platform, segmentation violations cannot be caught using signal handlers. This is expected if you enabled a tool such as Address Sanitizer (-fsanitize=address), but be aware that using Address Sanitizer may also significantly reduce performance.
+sysctl: sysctl fmt -1 1024 1: Operation not permitted
+expr: syntax error
+expr: syntax error
 In file included from crypto_sign/ed25519/ref10/obsolete.c:9:
 In file included from ./include/sodium/private/ed25519_ref10.h:23:
 ./include/sodium/private/ed25519_ref10_fe_51.h:109:1: warning: unused function 'fe25519_cmov' [-Wunused-function]
@@ -20,12 +23,12 @@ In file included from ./include/sodium/private/ed25519_ref10.h:23:
   493 | fe25519_mul32(fe25519 h, const fe25519 f, uint32_t n)
       | ^~~~~~~~~~~~~
 6 warnings generated.
-In file included from crypto_pwhash/argon2/argon2-fill-block-ssse3.c:18:
+In file included from crypto_pwhash/argon2/argon2-fill-block-avx2.c:18:
 crypto_pwhash/argon2/argon2-core.h:139:17: warning: unused function 'index_alpha' [-Wunused-function]
   139 | static uint32_t index_alpha(const argon2_instance_t *instance,
       |                 ^~~~~~~~~~~
 1 warning generated.
-In file included from crypto_pwhash/argon2/argon2-fill-block-avx2.c:18:
+In file included from crypto_pwhash/argon2/argon2-fill-block-ssse3.c:18:
 crypto_pwhash/argon2/argon2-core.h:139:17: warning: unused function 'index_alpha' [-Wunused-function]
   139 | static uint32_t index_alpha(const argon2_instance_t *instance,
       |                 ^~~~~~~~~~~
@@ -48,12 +51,6 @@ In file included from crypto_pwhash/argon2/argon2-core.c:31:
 crypto_pwhash/argon2/argon2-core.h:139:17: warning: unused function 'index_alpha' [-Wunused-function]
   139 | static uint32_t index_alpha(const argon2_instance_t *instance,
       |                 ^~~~~~~~~~~
-In file included from crypto_pwhash/argon2/argon2-encoding.c:2:
-crypto_pwhash/argon2/argon2-core.h:139:17: warning: unused function 'index_alpha' [-Wunused-function]
-  139 | static uint32_t index_alpha(const argon2_instance_t *instance,
-      |                 ^~~~~~~~~~~
-1 warning generated.
-1 warning generated.
 crypto_pwhash/argon2/argon2-fill-block-ref.c:199:9: warning: unknown pragma ignored [-Wunknown-pragmas]
   199 | #pragma warning(push)
       |         ^
@@ -63,12 +60,18 @@ crypto_pwhash/argon2/argon2-fill-block-ref.c:200:9: warning: unknown pragma igno
 crypto_pwhash/argon2/argon2-fill-block-ref.c:202:9: warning: unknown pragma ignored [-Wunknown-pragmas]
   202 | #pragma warning(pop)
       |         ^
-3 warnings generated.
+1 warning generated.
 In file included from crypto_pwhash/argon2/argon2.c:22:
 crypto_pwhash/argon2/argon2-core.h:139:17: warning: unused function 'index_alpha' [-Wunused-function]
   139 | static uint32_t index_alpha(const argon2_instance_t *instance,
       |                 ^~~~~~~~~~~
+In file included from crypto_pwhash/argon2/argon2-encoding.c:2:
+crypto_pwhash/argon2/argon2-core.h:139:17: warning: unused function 'index_alpha' [-Wunused-function]
+  139 | static uint32_t index_alpha(const argon2_instance_t *instance,
+      |                 ^~~~~~~~~~~
 1 warning generated.
+1 warning generated.
+3 warnings generated.
 In file included from crypto_pwhash/argon2/pwhash_argon2i.c:9:
 crypto_pwhash/argon2/argon2-core.h:139:17: warning: unused function 'index_alpha' [-Wunused-function]
   139 | static uint32_t index_alpha(const argon2_instance_t *instance,
@@ -126,29 +129,8 @@ In file included from ./include/sodium/private/ed25519_ref10.h:23:
 ./include/sodium/private/ed25519_ref10_fe_51.h:493:1: warning: unused function 'fe25519_mul32' [-Wunused-function]
   493 | fe25519_mul32(fe25519 h, const fe25519 f, uint32_t n)
       | ^~~~~~~~~~~~~
+6 warnings generated.
 In file included from crypto_sign/ed25519/ref10/open.c:10:
-In file included from ./include/sodium/private/ed25519_ref10.h:23:
-./include/sodium/private/ed25519_ref10_fe_51.h:109:1: warning: unused function 'fe25519_cmov' [-Wunused-function]
-  109 | fe25519_cmov(fe25519 f, const fe25519 g, unsigned int b)
-      | ^~~~~~~~~~~~
-./include/sodium/private/ed25519_ref10_fe_51.h:146:1: warning: unused function 'fe25519_cswap' [-Wunused-function]
-  146 | fe25519_cswap(fe25519 f, fe25519 g, unsigned int b)
-      | ^~~~~~~~~~~~~
-./include/sodium/private/ed25519_ref10_fe_51.h:243:1: warning: unused function 'fe25519_mul' [-Wunused-function]
-  243 | fe25519_mul(fe25519 h, const fe25519 f, const fe25519 g)
-      | ^~~~~~~~~~~
-./include/sodium/private/ed25519_ref10_fe_51.h:334:1: warning: unused function 'fe25519_sq' [-Wunused-function]
-  334 | fe25519_sq(fe25519 h, const fe25519 f)
-      | ^~~~~~~~~~
-./include/sodium/private/ed25519_ref10_fe_51.h:413:1: warning: unused function 'fe25519_sq2' [-Wunused-function]
-  413 | fe25519_sq2(fe25519 h, const fe25519 f)
-      | ^~~~~~~~~~~
-./include/sodium/private/ed25519_ref10_fe_51.h:493:1: warning: unused function 'fe25519_mul32' [-Wunused-function]
-  493 | fe25519_mul32(fe25519 h, const fe25519 f, uint32_t n)
-      | ^~~~~~~~~~~~~
-6 warnings generated.
-6 warnings generated.
-In file included from crypto_core/ed25519/core_ristretto255.c:7:
 In file included from ./include/sodium/private/ed25519_ref10.h:23:
 ./include/sodium/private/ed25519_ref10_fe_51.h:109:1: warning: unused function 'fe25519_cmov' [-Wunused-function]
   109 | fe25519_cmov(fe25519 f, const fe25519 g, unsigned int b)
@@ -190,7 +172,7 @@ In file included from ./include/sodium/private/ed25519_ref10.h:23:
   493 | fe25519_mul32(fe25519 h, const fe25519 f, uint32_t n)
       | ^~~~~~~~~~~~~
 6 warnings generated.
-In file included from crypto_scalarmult/ed25519/ref10/scalarmult_ed25519_ref10.c:5:
+In file included from crypto_core/ed25519/core_ristretto255.c:7:
 In file included from ./include/sodium/private/ed25519_ref10.h:23:
 ./include/sodium/private/ed25519_ref10_fe_51.h:109:1: warning: unused function 'fe25519_cmov' [-Wunused-function]
   109 | fe25519_cmov(fe25519 f, const fe25519 g, unsigned int b)
@@ -223,6 +205,26 @@ In file included from ./include/sodium/private/ed25519_ref10.h:23:
   243 | fe25519_mul(fe25519 h, const fe25519 f, const fe25519 g)
       | ^~~~~~~~~~~
 ./include/sodium/private/ed25519_ref10_fe_51.h:334:1: warning: unused function 'fe25519_sq' [-Wunused-function]
+  334 | fe25519_sq(fe25519 h, const In file included from fcrypto_scalarmult/ed25519/ref10/scalarmult_ed25519_ref10.ce25519 f)
+      | ^~~~~~~~~~
+./include/sodium/private/ed25519_ref10_fe_51.h:413:1: warning: unused function 'fe25519_sq2' [-Wunused-function]
+  413 | fe25519_sq2(fe25519 h, const fe25519 f)
+      | ^~~~~~~~~~~
+./include/sodium/private/ed25519_ref10_fe_51.h:493:1: warning: unused function 'fe25519_mul32' [-Wunused-function]
+  493 | fe25519_mul32(fe25519 h, const fe25519 f, uint32_t n)
+      | ^~~~~~~~~~~~~
+:5:
+In file included from ./include/sodium/private/ed25519_ref10.h:23:
+./include/sodium/private/ed25519_ref10_fe_51.h:109:1: warning: unused function 'fe25519_cmov' [-Wunused-function]
+  109 | fe25519_cmov(fe25519 f, const fe25519 g, unsigned int b)
+      | ^~~~~~~~~~~~
+./include/sodium/private/ed25519_ref10_fe_51.h:146:1: warning: unused function 'fe25519_cswap' [-Wunused-function]
+  146 | fe25519_cswap(fe25519 f, fe25519 g, unsigned int b)
+      | ^~~~~~~~~~~~~
+./include/sodium/private/ed25519_ref10_fe_51.h:243:1: warning: unused function 'fe25519_mul' [-Wunused-function]
+  243 | fe25519_mul(fe25519 h, const fe25519 f, const fe25519 g)
+      | ^~~~~~~~~~~
+./include/sodium/private/ed25519_ref10_fe_51.h:334:1: warning: unused function 'fe25519_sq' [-Wunused-function]
   334 | fe25519_sq(fe25519 h, const fe25519 f)
       | ^~~~~~~~~~
 ./include/sodium/private/ed25519_ref10_fe_51.h:413:1: warning: unused function 'fe25519_sq2' [-Wunused-function]
@@ -232,11 +234,24 @@ In file included from ./include/sodium/private/ed25519_ref10.h:23:
   493 | fe25519_mul32(fe25519 h, const fe25519 f, uint32_t n)
       | ^~~~~~~~~~~~~
 6 warnings generated.
+6 warnings generated.
 libtool: warning: '-version-info/-version-number' is ignored for convenience libraries
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
 warning: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib: archive library: .libs/libsse41.a the table of contents is empty (no object file members in the library define global symbols)
 libtool: warning: '-version-info/-version-number' is ignored for convenience libraries
-libtool: warning: '-version-info/-version-number' is ignored for convenience libraries
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
 warning: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib: archive library: .libs/libavx2.a the table of contents is empty (no object file members in the library define global symbols)
+libtool: warning: '-version-info/-version-number' is ignored for convenience libraries
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
 warning: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib: archive library: .libs/libavx512f.a the table of contents is empty (no object file members in the library define global symbols)
 crypto_aead/aes256gcm/aesni/aead_aes256gcm_aesni.c:923:55: warning: unused parameter 'c' [-Wunused-parameter]
   923 | crypto_aead_aes256gcm_encrypt_detached(unsigned char *c,
@@ -468,15 +483,135 @@ crypto_aead/aes256gcm/aesni/aead_aes256gcm_aesni.c:1025:74: warning: unused para
       |                                                                          ^
 76 warnings generated.
 libtool: warning: '-version-info/-version-number' is ignored for convenience libraries
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
 libtool: warning: '-version-info/-version-number' is ignored for convenience libraries
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+libtool: warning: '-version-info/-version-number' is ignored for convenience libraries
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
 warning: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib: archive library: .libs/libsse2.a the table of contents is empty (no object file members in the library define global symbols)
-libtool: warning: '-version-info/-version-number' is ignored for convenience libraries
 warning: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib: archive library: .libs/libssse3.a the table of contents is empty (no object file members in the library define global symbols)
 randombytes/internal/randombytes_internal_random.c:317:1: warning: unused function 'safe_read' [-Wunused-function]
   317 | safe_read(const int fd, void * const buf_, size_t size)
       | ^~~~~~~~~
 1 warning generated.
 libtool: warning: '-version-info/-version-number' is ignored for convenience libraries
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11169: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
+../../libtool: line 11205: test: : integer expression expected
 scalarmult2.c:16:19: warning: unused variable 'i' [-Wunused-variable]
    16 |     int           i;
       |                   ^

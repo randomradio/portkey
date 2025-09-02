@@ -10,9 +10,9 @@ Imagine having a magical map that reveals all your servers at once, and with a s
 
 **🧙‍♂️ The Magic Behind the Spell:**
 - **Alohomora for SSH**: One master password unlocks all your server credentials
-- **Marauder's Map for DevOps**: Visualize all your servers in one enchanted interface
+- **Marauder's Map for DevOps**: Visualize all your servers in a TUI
 - **Apparition for SSH**: Instantly teleport to any server with a single command
-- **Fidelius Charm**: Military-grade encryption keeps your secrets safe
+- **Fidelius Charm**: Strong encryption keeps your secrets safe
 
 ## 🪄 How the Magic Works
 
@@ -33,15 +33,24 @@ Imagine having a magical map that reveals all your servers at once, and with a s
 
 ### 3. **Navigate Your Wizarding World** 🧭
 ```bash
-./portkey quick  # Marauder's Map mode
-# Select your destination: prod-web (192.168.1.100)
+./portkey quick  # TUI (ratatui) with fuzzy search
+# Type to filter, ↑/↓ to select, ↵ to connect, q to quit
 # 🪄 *Poof* - You're connected!
 ```
 
 ### 4. **Search Like a True Wizard** 🔍
 ```bash
-./portkey search web  # Find all web servers
-./portkey search prod  # Find all production servers
+./portkey search web  # Fuzzy search across names/hosts/users/descriptions
+./portkey search prod
+```
+
+### 5. **Export SSH Config** 🧷
+```bash
+# Preview entries to add to ~/.ssh/config
+./portkey ssh-config
+
+# Append entries directly to ~/.ssh/config
+./portkey ssh-config --write
 ```
 
 ## 🔮 Magical Features
@@ -57,8 +66,8 @@ Imagine having a magical map that reveals all your servers at once, and with a s
 
 ## 🛡️ Protective Enchantments
 
-- **🔐 Chamber of Secrets**: AES-256-GCM encryption with unique salts
-- **🗝️ Master Key**: PBKDF2 key derivation with Argon2id13
+- **🔐 Sealed Vault**: XSalsa20-Poly1305 (libsodium SecretBox)
+- **🗝️ Master Key**: Argon2id key derivation with per-vault salt
 - **🧹 Memory Charms**: Zeroizes sensitive data from memory
 - **🚪 Restricted Access**: File permissions locked to owner only (600)
 - **⚡ Unbreakable Vow**: Rust's memory safety prevents dark magic
@@ -112,7 +121,7 @@ Search your entire infrastructure like you're using the Marauder's Map. "I solem
 ┌─────────────────────────────────────────┐
 │          Portkey Spell Book             │
 ├─────────────────────────────────────────┤
-│  🔐 Crypto: AES-256-GCM + Argon2id13   │
+│  🔐 Crypto: SecretBox + Argon2id       │
 │  🗃️ Storage: Encrypted JSON vault       │
 │  🔍 Search: Fuzzy matching across all   │
 │  🔗 SSH: Password-based authentication  │
@@ -123,9 +132,9 @@ Search your entire infrastructure like you're using the Marauder's Map. "I solem
 ## 🪄 Behind the Magic
 
 When you type a password, Portkey performs an ancient ritual:
-1. **Derives a magical key** from your password using PBKDF2
-2. **Unseals the vault** using AES-256-GCM decryption
-3. **Reveals your servers** in an enchanted interface
+1. **Derives a key** from your password using Argon2id
+2. **Unseals the vault** using SecretBox (XSalsa20-Poly1305)
+3. **Reveals your servers** in a fast TUI with fuzzy search
 4. **Teleports you instantly** via SSH with stored credentials
 
 ## 🎭 Role-Playing Guide
