@@ -696,29 +696,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
-name = "portkey"
-version = "0.1.1"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "crossterm 0.27.0",
- "dirs",
- "fuzzy-matcher",
- "inquire",
- "ratatui",
- "rpassword",
- "serde",
- "serde_json",
- "sodiumoxide",
- "tempfile",
- "thiserror",
- "tokio",
- "uuid",
- "zeroize",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -955,6 +932,29 @@ dependencies = [
  "libc",
  "libsodium-sys",
  "serde",
+]
+
+[[package]]
+name = "ssh-portkey"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "crossterm 0.27.0",
+ "dirs",
+ "fuzzy-matcher",
+ "inquire",
+ "ratatui",
+ "rpassword",
+ "serde",
+ "serde_json",
+ "sodiumoxide",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "uuid",
+ "zeroize",
 ]
 
 [[package]]

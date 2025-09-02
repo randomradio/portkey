@@ -75,7 +75,7 @@ Imagine having a magical map that reveals all your servers at once, and with a s
 ## 🚀 Install
 
 - Cargo (Rust):
-  - `cargo install portkey`
+  - `cargo install ssh-portkey`  # installs the `portkey` binary
 - Homebrew (tap):
   - `brew tap your-org/tap`
   - `brew install portkey`
@@ -86,7 +86,7 @@ Note: On first use, you may want to install `sshpass` for password-based SSH, or
 
 ```bash
 # ⚡ Install (via cargo)
-cargo install portkey
+cargo install ssh-portkey
 
 # 🪄 Create your vault (choose your master spell)
 ./portkey init

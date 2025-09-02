@@ -1,5 +1,5 @@
 [package]
-name = "portkey"
+name = "ssh-portkey"
 version = "0.1.1"
 edition = "2021"
 description = "Secure SSH credential manager with a fast ratatui-based TUI, fuzzy search, and encrypted vault"
@@ -8,9 +8,9 @@ readme = "README.md"
 keywords = ["ssh", "tui", "cli", "security", "encryption"]
 categories = ["command-line-utilities", "cryptography"]
 # Optional: update these URLs before publishing
-repository = "https://github.com/your-org/portkey"
-homepage = "https://github.com/your-org/portkey"
-documentation = "https://docs.rs/portkey"
+repository = "https://github.com/randomradio/portkey"
+homepage = "https://github.com/randomradio/portkey"
+documentation = "https://docs.rs/ssh-portkey"
 exclude = [
     "target/**",
     ".github/**",
@@ -25,6 +25,10 @@ exclude = [
 [[bin]]
 name = "portkey"
 path = "src/main.rs"
+
+[lib]
+name = "portkey"
+path = "src/lib.rs"
 
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
