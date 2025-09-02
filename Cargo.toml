@@ -1,6 +1,6 @@
 [package]
 name = "portkey"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Secure SSH credential manager with a fast ratatui-based TUI, fuzzy search, and encrypted vault"
 license = "MIT"
@@ -11,6 +11,10 @@ categories = ["command-line-utilities", "cryptography"]
 repository = "https://github.com/your-org/portkey"
 homepage = "https://github.com/your-org/portkey"
 documentation = "https://docs.rs/portkey"
+
+[[bin]]
+name = "portkey"
+path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
