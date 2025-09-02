@@ -11,6 +11,16 @@ categories = ["command-line-utilities", "cryptography"]
 repository = "https://github.com/your-org/portkey"
 homepage = "https://github.com/your-org/portkey"
 documentation = "https://docs.rs/portkey"
+exclude = [
+    "target/**",
+    ".github/**",
+    "packaging/**",
+    "tests/**",
+    "portkey/**",
+    "install.sh",
+    ".claude/**",
+    "Cargo.toml.orig",
+]
 
 [[bin]]
 name = "portkey"
