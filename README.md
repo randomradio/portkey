@@ -72,11 +72,21 @@ Imagine having a magical map that reveals all your servers at once, and with a s
 - **🚪 Restricted Access**: File permissions locked to owner only (600)
 - **⚡ Unbreakable Vow**: Rust's memory safety prevents dark magic
 
+## 🚀 Install
+
+- Cargo (Rust):
+  - `cargo install portkey`
+- Homebrew (tap):
+  - `brew tap your-org/tap`
+  - `brew install portkey`
+
+Note: On first use, you may want to install `sshpass` for password-based SSH, or preferably set up SSH keys.
+
 ## 🚀 Quick Start - Become a Wizard in 60 Seconds
 
 ```bash
-# ⚡ Install the magical toolkit
-./install.sh
+# ⚡ Install (via cargo)
+cargo install portkey
 
 # 🪄 Create your vault (choose your master spell)
 ./portkey init
@@ -84,8 +94,8 @@ Imagine having a magical map that reveals all your servers at once, and with a s
 # 🗺️ Add your first server
 ./portkey add
 
-# ✨ Connect instantly
-./portkey quick
+# ✨ Launch the TUI
+./portkey
 ```
 
 ## 🌟 Magical Use Cases

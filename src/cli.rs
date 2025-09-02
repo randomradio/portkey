@@ -11,7 +11,7 @@ use fuzzy_matcher::FuzzyMatcher;
 #[derive(Parser)]
 #[command(name = "portkey")]
 #[command(about = "Secure SSH credential manager")]
-#[command(version = "1.0.0")]
+#[command(version)]
 pub struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
