@@ -28,8 +28,10 @@ pub fn connect(server: &Server) -> Result<()> {
     // Use sshpass with env var to avoid password in process args
     let status = Command::new("sshpass")
         .env("SSHPASS", &server.password)
+        .env("TERM", std::env::var("TERM").unwrap_or_else(|_| "xterm-256color".to_string()))
         .arg("-e")
         .arg("ssh")
+        .arg("-tt") // Force PTY allocation for interactive sessions
         .arg(format!("{}@{}", server.username, server.host))
         .arg("-p")
         .arg(server.port.to_string())

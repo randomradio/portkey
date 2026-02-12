@@ -1,7 +1,7 @@
 use std::io;
 use std::time::{Duration, Instant};
 
-use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers, MouseEventKind};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
@@ -13,32 +13,52 @@ use ratatui::Terminal;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use uuid::Uuid;
-// use chrono::Utc;
 
 use crate::models::Server;
 use crate::vault::Vault;
 use crate::ssh;
 
-fn cleanup_terminal() -> io::Result<()> {
+fn cleanup_terminal(inside_tmux: bool) -> io::Result<()> {
     disable_raw_mode()?;
     let mut stdout = io::stdout();
-    crossterm::execute!(stdout, crossterm::event::DisableMouseCapture, crossterm::terminal::LeaveAlternateScreen)?;
+    if !inside_tmux {
+        crossterm::execute!(stdout, crossterm::event::DisableMouseCapture)?;
+    }
+    crossterm::execute!(stdout, crossterm::terminal::LeaveAlternateScreen)?;
     Ok(())
 }
 
 // Full TUI application replacing interactive prompts
 pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
+    let inside_tmux = std::env::var("TMUX").is_ok();
+
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen, crossterm::event::EnableMouseCapture)?;
+    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
+    if !inside_tmux {
+        crossterm::execute!(stdout, crossterm::event::EnableMouseCapture)?;
+    }
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
     let matcher = SkimMatcherV2::default();
     let mut input = String::new();
     let mut selected_idx: usize = 0;
+    // 200ms tick rate: provides responsive UI updates while being long enough
+    // for crossterm to assemble multi-byte escape sequences from tmux.
     let tick_rate = Duration::from_millis(200);
     let mut last_tick = Instant::now();
+
+    // Persistent list state so scroll offset is preserved across frames
+    let mut list_state = ratatui::widgets::ListState::default();
+
+    let clamp_selection = |idx: &mut usize, len: usize| {
+        if len == 0 {
+            *idx = 0;
+        } else if *idx >= len {
+            *idx = len - 1;
+        }
+    };
 
     // UI modes
     enum Mode { Browse, Filter, Add(AddForm), Edit(EditForm), ConfirmDelete(Uuid), Message(String, Instant) }
@@ -66,9 +86,12 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
         }
     };
     let mut filtered: Vec<(i64, usize)> = make_filtered("", &servers);
-    if filtered.is_empty() { selected_idx = 0; }
+    clamp_selection(&mut selected_idx, filtered.len());
 
     loop {
+        // Sync selection to persistent list_state before drawing
+        list_state.select(if filtered.is_empty() { None } else { Some(selected_idx) });
+
         terminal.draw(|f| {
             let size = f.size();
             let chunks = Layout::default()
@@ -82,7 +105,7 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
                 .split(size);
 
             // Header
-            let header = Paragraph::new("Portkey — / filter | a add | Enter connect | x delete | q quit")
+            let header = Paragraph::new("Portkey -- / filter | a add | e edit | Enter connect | j/k navigate | q quit")
                 .block(Block::default().borders(Borders::NONE));
             f.render_widget(header, chunks[0]);
 
@@ -92,12 +115,12 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
                 Mode::Add(form) => {
                     let label = match form.step { 0 => "Name", 1 => "Host", 2 => "Port", 3 => "Username", 4 => "Password", 5 => "Description", _ => "" };
                     let current = match form.step { 0 => &form.name, 1 => &form.host, 2 => &form.port, 3 => &form.username, 4 => &form.password, 5 => &form.description, _ => &form.name };
-                    (format!("Add server — {}:", label), current.clone())
+                    (format!("Add server -- {} (Shift+Tab to go back):", label), current.clone())
                 }
                 Mode::Edit(form) => {
                     let label = match form.step { 0 => "Name", 1 => "Host", 2 => "Port", 3 => "Username", 4 => "Password", 5 => "Description", _ => "" };
                     let current = match form.step { 0 => &form.name, 1 => &form.host, 2 => &form.port, 3 => &form.username, 4 => &form.password, 5 => &form.description, _ => &form.name };
-                    (format!("Edit server — {}:", label), current.clone())
+                    (format!("Edit server -- {} (Shift+Tab to go back):", label), current.clone())
                 }
                 Mode::Message(msg, _) => ("Message".to_string(), msg.clone()),
                 _ => ("Filter (press / to edit)".to_string(), input.clone()),
@@ -119,23 +142,27 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
                     })
                     .collect()
             };
-            let mut state = ratatui::widgets::ListState::default();
-            if !filtered.is_empty() { state.select(Some(selected_idx)); }
             let list = List::new(items)
                 .block(Block::default().borders(Borders::ALL).title("Servers"))
                 .highlight_style(Style::default().add_modifier(Modifier::BOLD | Modifier::REVERSED));
-            f.render_stateful_widget(list, chunks[2], &mut state);
+            f.render_stateful_widget(list, chunks[2], &mut list_state);
 
             // Footer
-            let footer = Paragraph::new("d delete | e export ssh-config (CLI) | ? help")
+            let footer = Paragraph::new("d delete | PgUp/PgDn scroll | Home/End jump | Ctrl+C force quit")
                 .block(Block::default().borders(Borders::NONE));
             f.render_widget(footer, chunks[3]);
         })?;
 
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if crossterm::event::poll(timeout)? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
+            match event::read()? {
+                Event::Key(key) if key.kind == KeyEventKind::Press => {
+                    // Global Ctrl+C: emergency exit from any mode
+                    if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+                        cleanup_terminal(inside_tmux)?;
+                        return Ok(());
+                    }
+
                     match &mut mode {
                         Mode::Browse => match key.code {
                             KeyCode::Char('/') => { mode = Mode::Filter; }
@@ -159,38 +186,102 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
                             KeyCode::Char('x') | KeyCode::Char('d') => {
                                 if let Some((_, idx)) = filtered.get(selected_idx) { mode = Mode::ConfirmDelete(servers[*idx].id); }
                             }
-                            KeyCode::Up => { if !filtered.is_empty() { selected_idx = selected_idx.saturating_sub(1); } }
-                            KeyCode::Down => { if !filtered.is_empty() { selected_idx = (selected_idx + 1).min(filtered.len().saturating_sub(1)); } }
+                            // Arrow key navigation
+                            KeyCode::Up | KeyCode::Char('k') => {
+                                if !filtered.is_empty() { selected_idx = selected_idx.saturating_sub(1); }
+                            }
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                if !filtered.is_empty() { selected_idx = (selected_idx + 1).min(filtered.len().saturating_sub(1)); }
+                            }
+                            // Page navigation
+                            KeyCode::PageUp => {
+                                if !filtered.is_empty() { selected_idx = selected_idx.saturating_sub(10); }
+                            }
+                            KeyCode::PageDown => {
+                                if !filtered.is_empty() { selected_idx = (selected_idx + 10).min(filtered.len().saturating_sub(1)); }
+                            }
+                            KeyCode::Home => { selected_idx = 0; }
+                            KeyCode::End => {
+                                if !filtered.is_empty() { selected_idx = filtered.len().saturating_sub(1); }
+                            }
                             KeyCode::Enter => {
                                 if let Some((_, idx)) = filtered.get(selected_idx) {
-                                    // Suspend TUI, run SSH, restore
-                                    cleanup_terminal()?;
-                                    let _ = ssh::connect(&servers[*idx]);
-                                    // Re-init terminal
+                                    // Clone server data before tearing down terminal
+                                    let server = servers[*idx].clone();
+
+                                    // Fully clean up terminal state
+                                    cleanup_terminal(inside_tmux)?;
+                                    // Drop old terminal to release stdout handle
+                                    drop(terminal);
+
+                                    // Run SSH (blocking, inherits stdio)
+                                    let _ = ssh::connect(&server);
+
+                                    // Rebuild terminal from scratch
                                     enable_raw_mode()?;
                                     let mut stdout = io::stdout();
-                                    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen, crossterm::event::EnableMouseCapture)?;
-                                    // Reload servers in case of changes
+                                    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
+                                    if !inside_tmux {
+                                        crossterm::execute!(stdout, crossterm::event::EnableMouseCapture)?;
+                                    }
+                                    let backend = CrosstermBackend::new(stdout);
+                                    terminal = Terminal::new(backend)?;
+                                    terminal.clear()?;
+
+                                    // Reload servers in case vault changed externally
                                     servers = vault.list_servers()?.clone();
                                     filtered = make_filtered(&input, &servers);
-                                    if filtered.is_empty() { selected_idx = 0; } else if selected_idx >= filtered.len() { selected_idx = filtered.len() - 1; }
+                                    clamp_selection(&mut selected_idx, filtered.len());
                                 }
                             }
-                            KeyCode::Char('q') | KeyCode::Esc => { cleanup_terminal()?; return Ok(()); }
+                            KeyCode::Char('q') | KeyCode::Esc => { cleanup_terminal(inside_tmux)?; return Ok(()); }
                             _ => {}
                         },
                         Mode::Filter => match key.code {
                             KeyCode::Enter => { mode = Mode::Browse; }
-                            KeyCode::Esc => { input.clear(); filtered = make_filtered("", &servers); if filtered.is_empty() { selected_idx = 0; } mode = Mode::Browse; }
-                            KeyCode::Backspace => { input.pop(); filtered = make_filtered(&input, &servers); if filtered.is_empty() { selected_idx = 0; } else if selected_idx >= filtered.len() { selected_idx = filtered.len() - 1; } }
-                            KeyCode::Delete => { input.clear(); filtered = make_filtered("", &servers); if filtered.is_empty() { selected_idx = 0; } }
+                            KeyCode::Esc => {
+                                input.clear();
+                                filtered = make_filtered("", &servers);
+                                clamp_selection(&mut selected_idx, filtered.len());
+                                mode = Mode::Browse;
+                            }
+                            KeyCode::Backspace => {
+                                input.pop();
+                                filtered = make_filtered(&input, &servers);
+                                clamp_selection(&mut selected_idx, filtered.len());
+                            }
+                            KeyCode::Delete => {
+                                input.clear();
+                                filtered = make_filtered("", &servers);
+                                clamp_selection(&mut selected_idx, filtered.len());
+                            }
                             KeyCode::Up => { if !filtered.is_empty() { selected_idx = selected_idx.saturating_sub(1); } }
                             KeyCode::Down => { if !filtered.is_empty() { selected_idx = (selected_idx + 1).min(filtered.len().saturating_sub(1)); } }
-                            KeyCode::Char(c) => { input.push(c); filtered = make_filtered(&input, &servers); if filtered.is_empty() { selected_idx = 0; } else if selected_idx >= filtered.len() { selected_idx = filtered.len() - 1; } }
+                            KeyCode::PageUp => {
+                                if !filtered.is_empty() { selected_idx = selected_idx.saturating_sub(10); }
+                            }
+                            KeyCode::PageDown => {
+                                if !filtered.is_empty() { selected_idx = (selected_idx + 10).min(filtered.len().saturating_sub(1)); }
+                            }
+                            KeyCode::Home => { selected_idx = 0; }
+                            KeyCode::End => {
+                                if !filtered.is_empty() { selected_idx = filtered.len().saturating_sub(1); }
+                            }
+                            KeyCode::Char(c) => {
+                                input.push(c);
+                                filtered = make_filtered(&input, &servers);
+                                clamp_selection(&mut selected_idx, filtered.len());
+                            }
                             _ => {}
                         },
                         Mode::Add(form) => match key.code {
                             KeyCode::Esc => { mode = Mode::Browse; }
+                            KeyCode::BackTab => {
+                                if form.step > 0 { form.step -= 1; }
+                            }
+                            KeyCode::Tab => {
+                                form.step = (form.step + 1).min(5);
+                            }
                             KeyCode::Enter => {
                                 form.step += 1;
                                 if form.step > 5 {
@@ -204,10 +295,12 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
                                         form.password.clone(),
                                         if form.description.is_empty() { None } else { Some(form.description.clone()) },
                                     );
-                                    if let Err(e) = vault.add_server(server) { mode = Mode::Message(format!("Add failed: {}", e), Instant::now()); } else {
+                                    if let Err(e) = vault.add_server(server) {
+                                        mode = Mode::Message(format!("Add failed: {}", e), Instant::now());
+                                    } else {
                                         servers = vault.list_servers()?.clone();
                                         filtered = make_filtered(&input, &servers);
-                                        if filtered.is_empty() { selected_idx = 0; } else if selected_idx >= filtered.len() { selected_idx = filtered.len() - 1; }
+                                        clamp_selection(&mut selected_idx, filtered.len());
                                         mode = Mode::Message("Server added".to_string(), Instant::now());
                                     }
                                 }
@@ -228,6 +321,12 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
                         },
                         Mode::Edit(form) => match key.code {
                             KeyCode::Esc => { mode = Mode::Browse; }
+                            KeyCode::BackTab => {
+                                if form.step > 0 { form.step -= 1; }
+                            }
+                            KeyCode::Tab => {
+                                form.step = (form.step + 1).min(5);
+                            }
                             KeyCode::Enter => {
                                 form.step += 1;
                                 if form.step > 5 {
@@ -248,7 +347,7 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
                                             Ok(true) => {
                                                 servers = vault.list_servers()?.clone();
                                                 filtered = make_filtered(&input, &servers);
-                                                if filtered.is_empty() { selected_idx = 0; } else if selected_idx >= filtered.len() { selected_idx = filtered.len() - 1; }
+                                                clamp_selection(&mut selected_idx, filtered.len());
                                                 mode = Mode::Message("Server updated".to_string(), Instant::now());
                                             }
                                             Ok(false) => { mode = Mode::Message("Server not found".to_string(), Instant::now()); }
@@ -278,7 +377,7 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
                                 let _ = vault.remove_server(id);
                                 servers = vault.list_servers()?.clone();
                                 filtered = make_filtered(&input, &servers);
-                                if filtered.is_empty() { selected_idx = 0; } else if selected_idx >= filtered.len() { selected_idx = filtered.len() - 1; }
+                                clamp_selection(&mut selected_idx, filtered.len());
                                 mode = Mode::Browse;
                             }
                             KeyCode::Char('n') | KeyCode::Esc => { mode = Mode::Browse; }
@@ -291,6 +390,27 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
                         }
                     }
                 }
+                Event::Mouse(mouse_event) => {
+                    match mouse_event.kind {
+                        MouseEventKind::ScrollUp => {
+                            if !filtered.is_empty() {
+                                selected_idx = selected_idx.saturating_sub(3);
+                            }
+                        }
+                        MouseEventKind::ScrollDown => {
+                            if !filtered.is_empty() {
+                                selected_idx = (selected_idx + 3).min(filtered.len().saturating_sub(1));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                Event::Resize(_width, _height) => {
+                    // Force a full clear so the next draw() picks up the new dimensions
+                    // without leftover artifacts from the old size.
+                    terminal.clear()?;
+                }
+                _ => {}
             }
         }
 
