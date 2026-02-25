@@ -123,6 +123,7 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
                     (format!("Edit server -- {} (Shift+Tab to go back):", label), current.clone())
                 }
                 Mode::Message(msg, _) => ("Message".to_string(), msg.clone()),
+                Mode::ConfirmDelete(_) => ("Confirm Delete".to_string(), "Press 'y' to confirm, 'n' or Esc to cancel".to_string()),
                 _ => ("Filter (press / to edit)".to_string(), input.clone()),
             };
             let input_widget = Paragraph::new(text)
@@ -148,7 +149,11 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
             f.render_stateful_widget(list, chunks[2], &mut list_state);
 
             // Footer
-            let footer = Paragraph::new("d delete | PgUp/PgDn scroll | Home/End jump | Ctrl+C force quit")
+            let footer_text = match &mode {
+                Mode::ConfirmDelete(_) => "y=YES | n=NO (or Esc to cancel)",
+                _ => "d delete | PgUp/PgDn scroll | Home/End jump | Ctrl+C force quit",
+            };
+            let footer = Paragraph::new(footer_text)
                 .block(Block::default().borders(Borders::NONE));
             f.render_widget(footer, chunks[3]);
         })?;
