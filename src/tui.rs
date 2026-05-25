@@ -1,5 +1,6 @@
 #![allow(clippy::collapsible_match)]
 
+use std::cmp::Reverse;
 use std::io;
 use std::time::{Duration, Instant};
 
@@ -122,7 +123,7 @@ pub fn run_full_ui(vault: &mut Vault) -> anyhow::Result<()> {
                     matcher.fuzzy_match(&hay, query).map(|score| (score, i))
                 })
                 .collect();
-            scored.sort_by(|a, b| b.0.cmp(&a.0));
+            scored.sort_by_key(|score| Reverse(score.0));
             scored
         }
     };

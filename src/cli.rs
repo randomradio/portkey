@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use inquire::{Confirm, Password, Select, Text};
+use std::cmp::Reverse;
 
 use crate::models::Server;
 use crate::ssh;
@@ -301,7 +302,7 @@ impl CliHandler {
                 matcher.fuzzy_match(&hay, &query).map(|score| (s, score))
             })
             .collect();
-        matches.sort_by(|a, b| b.1.cmp(&a.1));
+        matches.sort_by_key(|match_result| Reverse(match_result.1));
 
         if matches.is_empty() {
             println!("No servers match your search.");
