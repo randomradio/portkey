@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_match)]
+
 use std::io;
 use std::time::{Duration, Instant};
 

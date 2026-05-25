@@ -119,8 +119,8 @@ impl Vault {
 
         self.save_vault_file(&vault_file)?;
 
-        if password.is_some() {
-            let master_key = MasterKey::from_password(password.unwrap(), &vault_file.salt)?;
+        if let Some(password) = password {
+            let master_key = MasterKey::from_password(password, &vault_file.salt)?;
             self.master_key = Some(master_key);
         }
         self.data = Some(vault_data);
