@@ -3,10 +3,22 @@ use clap::{Parser, Subcommand};
 use inquire::{Confirm, Password, Select, Text};
 
 use crate::models::Server;
-use crate::vault::Vault;
-use crate::tui;
 use crate::ssh;
+use crate::ssh_config::{render_managed_block, upsert_managed_block};
+use crate::tui;
+use crate::vault::Vault;
 use fuzzy_matcher::FuzzyMatcher;
+use uuid::Uuid;
+
+pub fn password_option_from_choice(use_password: bool, password: &str) -> Result<Option<&str>> {
+    if use_password && password.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Master password cannot be empty when password protection is enabled"
+        ));
+    }
+
+    Ok(if use_password { Some(password) } else { None })
+}
 
 #[derive(Parser)]
 #[command(name = "portkey")]
@@ -21,32 +33,30 @@ pub struct Cli {
 pub enum Commands {
     /// Initialize a new vault
     Init,
-    
+
     /// Add a new server
     Add,
-    
+
     /// List all servers
     List,
-    
+
     /// Connect to a server
     Connect {
         /// Server name or ID
         name: Option<String>,
     },
-    
+
     /// Remove a server
     Remove {
         /// Server name or ID
         name: String,
     },
-    
+
     /// Interactive server selection and connection
     Quick,
-    
+
     /// Search servers
-    Search {
-        query: String,
-    },
+    Search { query: String },
 
     /// Export SSH config entries for servers
     SshConfig {
@@ -93,16 +103,24 @@ impl CliHandler {
             let confirmed = Confirm::new("Vault already exists. Do you want to overwrite it?")
                 .with_default(false)
                 .prompt()?;
-            
+
             if !confirmed {
                 println!("Operation cancelled.");
                 return Ok(());
             }
+
+            let backup_path = self
+                .vault
+                .vault_path()
+                .with_file_name(format!("vault.dat.{}.bak", Uuid::new_v4()));
+            std::fs::rename(self.vault.vault_path(), &backup_path)?;
+            println!("Existing vault backed up to {}", backup_path.display());
         }
 
-        let use_password = Confirm::new("Would you like to protect your vault with a master password?")
-            .with_default(true)
-            .prompt()?;
+        let use_password =
+            Confirm::new("Would you like to protect your vault with a master password?")
+                .with_default(true)
+                .prompt()?;
 
         let password = if use_password {
             Password::new("Enter master password:")
@@ -113,9 +131,9 @@ impl CliHandler {
             String::new()
         };
 
-        let password_opt = if password.is_empty() { None } else { Some(password.as_str()) };
+        let password_opt = password_option_from_choice(use_password, password.as_str())?;
         self.vault.create(password_opt)?;
-        
+
         if use_password {
             println!("🔒 Vault created with password protection!");
         } else {
@@ -130,25 +148,34 @@ impl CliHandler {
 
         let name = Text::new("Server name:").prompt()?;
         let host = Text::new("Host/IP:").prompt()?;
-        let port = Text::new("Port:")
-            .with_default("22")
-            .prompt()?
+        let port_input = Text::new("Port:").with_default("22").prompt()?;
+        let port = port_input
             .parse::<u16>()
-            .unwrap_or(22);
+            .map_err(|_| anyhow::anyhow!("Invalid port '{}'", port_input))?;
         let username = Text::new("Username:").prompt()?;
         let password = Password::new("Password:")
             .with_display_toggle_enabled()
             .prompt()?;
+        let identity_file = Text::new("Identity file (optional, e.g. ~/.ssh/id_ed25519):")
+            .prompt()
+            .ok()
+            .and_then(|value| {
+                let trimmed = value.trim().to_string();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed)
+                }
+            });
+        let forward_agent = Confirm::new("Forward SSH agent for this session?")
+            .with_default(false)
+            .prompt()
+            .unwrap_or(false);
         let description = Text::new("Description (optional):").prompt().ok();
 
-        let server = Server::new(
-            name,
-            host,
-            port,
-            username,
-            password,
-            description,
-        );
+        let mut server = Server::new(name, host, port, username, password, description);
+        server.identity_file = identity_file;
+        server.forward_agent = forward_agent;
 
         self.vault.add_server(server)?;
         println!("Server added successfully!");
@@ -160,7 +187,7 @@ impl CliHandler {
         self.ensure_unlocked().await?;
 
         let servers = self.vault.list_servers()?;
-        
+
         if servers.is_empty() {
             println!("No servers configured.");
             return Ok(());
@@ -168,14 +195,20 @@ impl CliHandler {
 
         println!("\nConfigured servers:");
         println!("{:-<60}", "");
-        
+
         for server in servers {
             println!("ID: {}", server.id);
             println!("Name: {}", server.name);
             println!("Host: {}:{}", server.host, server.port);
             println!("User: {}", server.username);
+            if let Some(identity_file) = &server.identity_file {
+                println!("Identity file: {identity_file}");
+            }
+            if server.forward_agent {
+                println!("Forward agent: yes");
+            }
             if let Some(desc) = &server.description {
-                println!("Description: {}", desc);
+                println!("Description: {desc}");
             }
             println!("{:-<60}", "");
         }
@@ -200,13 +233,13 @@ impl CliHandler {
                     .map(|s| format!("{} ({})", s.name, s.host))
                     .collect();
 
-                let selection = Select::new("Select server:", options)
-                    .prompt()?;
+                let selection = Select::new("Select server:", options).prompt()?;
 
-                let index = servers.iter().position(|s| 
-                    format!("{} ({})", s.name, s.host) == selection
-                ).unwrap();
-                
+                let index = servers
+                    .iter()
+                    .position(|s| format!("{} ({})", s.name, s.host) == selection)
+                    .unwrap();
+
                 &servers[index]
             }
         };
@@ -221,12 +254,18 @@ impl CliHandler {
             let server = self.find_server_by_name_or_id(&name)?;
             server.id
         };
-        
-        let server = self.vault.find_server(&server_id)?
+
+        let server = self
+            .vault
+            .find_server(&server_id)?
             .ok_or_else(|| anyhow::anyhow!("Server not found"))?;
-        
-        let confirmed = Confirm::new(&format!("Remove server '{}' ({})?", server.name, server.host)
-        ).with_default(false).prompt()?;
+
+        let confirmed = Confirm::new(&format!(
+            "Remove server '{}' ({})?",
+            server.name, server.host
+        ))
+        .with_default(false)
+        .prompt()?;
 
         if confirmed {
             self.vault.remove_server(&server_id)?;
@@ -251,7 +290,14 @@ impl CliHandler {
         let mut matches: Vec<(&Server, i64)> = servers
             .iter()
             .filter_map(|s| {
-                let hay = format!("{} {} {} {} {}", s.name, s.host, s.username, s.port, s.description.as_deref().unwrap_or(""));
+                let hay = format!(
+                    "{} {} {} {} {}",
+                    s.name,
+                    s.host,
+                    s.username,
+                    s.port,
+                    s.description.as_deref().unwrap_or("")
+                );
                 matcher.fuzzy_match(&hay, &query).map(|score| (s, score))
             })
             .collect();
@@ -264,13 +310,19 @@ impl CliHandler {
 
         println!("Search results:");
         println!("{:-<60}", "");
-        
+
         for (server, _) in matches {
             println!("Name: {}", server.name);
             println!("Host: {}:{}", server.host, server.port);
             println!("User: {}", server.username);
+            if let Some(identity_file) = &server.identity_file {
+                println!("Identity file: {identity_file}");
+            }
+            if server.forward_agent {
+                println!("Forward agent: yes");
+            }
             if let Some(desc) = &server.description {
-                println!("Description: {}", desc);
+                println!("Description: {desc}");
             }
             println!("{:-<60}", "");
         }
@@ -282,29 +334,27 @@ impl CliHandler {
         self.ensure_unlocked().await?;
         let servers = self.vault.list_servers()?;
 
-        let mut output = String::new();
-        for s in servers {
-            output.push_str(&format!(
-                "Host {}\n  HostName {}\n  User {}\n  Port {}\n\n",
-                s.name, s.host, s.username, s.port
-            ));
-        }
+        let managed_block = render_managed_block(servers)?;
 
         if write {
-            let mut path = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Home directory not found"))?;
+            let mut path =
+                dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Home directory not found"))?;
             path.push(".ssh");
             std::fs::create_dir_all(&path)?;
             path.push("config");
 
-            // Append entries; avoid overwriting existing unrelated entries.
-            use std::fs::OpenOptions;
             use std::io::Write;
-            let mut file = OpenOptions::new().create(true).append(true).open(&path)?;
-            writeln!(file, "\n# Portkey managed entries")?;
-            write!(file, "{}", output)?;
+            let existing = std::fs::read_to_string(&path).unwrap_or_default();
+            let updated = upsert_managed_block(&existing, &managed_block);
+            let mut file = std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(&path)?;
+            write!(file, "{updated}")?;
             println!("Written SSH config entries to {}", path.display());
         } else {
-            println!("# Preview: add these to ~/.ssh/config\n{}", output);
+            println!("# Preview: add these to ~/.ssh/config\n{managed_block}");
         }
 
         println!("Note: SSH config does not store passwords. Consider setting up SSH keys.");
@@ -324,7 +374,9 @@ impl CliHandler {
 
     async fn ensure_unlocked(&mut self) -> Result<()> {
         if !self.vault.exists() {
-            return Err(anyhow::anyhow!("No vault found. Run 'portkey init' to create one."));
+            return Err(anyhow::anyhow!(
+                "No vault found. Run 'portkey init' to create one."
+            ));
         }
 
         if !self.vault.is_unlocked() {
@@ -338,7 +390,7 @@ impl CliHandler {
                     let password = Password::new("Enter master password:")
                         .with_display_toggle_enabled()
                         .prompt()?;
-                    
+
                     self.vault.unlock(Some(&password))?;
                     println!("Vault unlocked!");
                 }
@@ -350,18 +402,16 @@ impl CliHandler {
 
     fn find_server_by_name_or_id(&self, name_or_id: &str) -> Result<&Server> {
         let servers = self.vault.list_servers()?;
-        
-        servers.iter()
-            .find(|s| 
-                s.name.eq_ignore_ascii_case(name_or_id) || 
-                s.id.to_string().starts_with(name_or_id)
-            )
+
+        servers
+            .iter()
+            .find(|s| {
+                s.name.eq_ignore_ascii_case(name_or_id) || s.id.to_string().starts_with(name_or_id)
+            })
             .ok_or_else(|| anyhow::anyhow!("Server '{}' not found", name_or_id))
     }
 
-    async fn connect_to_server(&self, 
-        server: &Server
-    ) -> Result<()> {
+    async fn connect_to_server(&self, server: &Server) -> Result<()> {
         ssh::connect(server)
     }
 }

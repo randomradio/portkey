@@ -11,8 +11,13 @@ pub struct Server {
     pub username: String,
     pub password: String,
     pub description: Option<String>,
+    #[serde(default)]
+    pub identity_file: Option<String>,
+    #[serde(default)]
+    pub forward_agent: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    #[serde(default)]
     pub tags: Vec<String>,
 }
 
@@ -34,6 +39,8 @@ impl Server {
             username,
             password,
             description,
+            identity_file: None,
+            forward_agent: false,
             created_at: now,
             updated_at: now,
             tags: Vec::new(),
@@ -69,6 +76,12 @@ pub struct VaultData {
     pub version: String,
 }
 
+impl Default for VaultData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VaultData {
     pub fn new() -> Self {
         Self {
@@ -89,10 +102,6 @@ impl VaultData {
 
     pub fn find_server(&self, id: &Uuid) -> Option<&Server> {
         self.servers.iter().find(|s| &s.id == id)
-    }
-
-    pub fn list_servers(&self) -> &Vec<Server> {
-        &self.servers
     }
 
     pub fn replace_server(&mut self, server: Server) -> bool {

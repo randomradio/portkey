@@ -1,6 +1,6 @@
 use anyhow::Result;
-use sodiumoxide::crypto::secretbox;
 use sodiumoxide::crypto::pwhash::argon2id13;
+use sodiumoxide::crypto::secretbox;
 use zeroize::Zeroize;
 
 pub struct MasterKey {
@@ -10,7 +10,7 @@ pub struct MasterKey {
 impl MasterKey {
     pub fn from_password(password: &str, salt: &argon2id13::Salt) -> Result<Self> {
         let mut key = secretbox::Key([0; secretbox::KEYBYTES]);
-        
+
         argon2id13::derive_key(
             &mut key.0,
             password.as_bytes(),
@@ -30,12 +30,9 @@ impl MasterKey {
     }
 
     pub fn decrypt(&self, ciphertext: &[u8], nonce: &secretbox::Nonce) -> Result<Vec<u8>> {
-        secretbox::open(ciphertext, nonce, &self.key)
-            .map_err(|_| anyhow::anyhow!("Failed to decrypt data - invalid password or corrupted data"))
-    }
-
-    pub fn key(&self) -> &secretbox::Key {
-        &self.key
+        secretbox::open(ciphertext, nonce, &self.key).map_err(|_| {
+            anyhow::anyhow!("Failed to decrypt data - invalid password or corrupted data")
+        })
     }
 }
 

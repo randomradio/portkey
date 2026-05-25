@@ -1,12 +1,13 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sodiumoxide::crypto::secretbox;
 use sodiumoxide::crypto::pwhash::argon2id13;
+use sodiumoxide::crypto::secretbox;
 use std::fs;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use uuid::Uuid;
 
 use crate::crypto::{generate_salt, MasterKey};
 use crate::models::{Server, VaultData};
@@ -31,12 +32,14 @@ impl Vault {
         let data_dir = dirs::data_dir()
             .context("Failed to find data directory")?
             .join("portkey");
-        
-        if !data_dir.exists() {
-            fs::create_dir_all(&data_dir)?;
-        }
-
         let data_path = data_dir.join("vault.dat");
+        Self::new_at(data_path)
+    }
+
+    pub fn new_at(data_path: PathBuf) -> Result<Self> {
+        if let Some(parent) = data_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
 
         Ok(Self {
             data_path,
@@ -55,11 +58,11 @@ impl Vault {
         }
 
         let vault_file = self.load_vault_file()?;
-        
+
         // Try to decrypt with password if provided
         if let Some(password) = password {
             let master_key = MasterKey::from_password(password, &vault_file.salt)?;
-            
+
             // Check if this looks like encrypted data by attempting decryption
             let decrypted_data = master_key.decrypt(&vault_file.ciphertext, &vault_file.nonce)?;
             let vault_data: VaultData = serde_json::from_slice(&decrypted_data)
@@ -71,7 +74,7 @@ impl Vault {
             // No password provided, assume unencrypted vault
             let vault_data: VaultData = serde_json::from_slice(&vault_file.ciphertext)
                 .context("Failed to deserialize vault data - try providing a password")?;
-            
+
             self.master_key = None;
             self.data = Some(vault_data);
         }
@@ -92,7 +95,7 @@ impl Vault {
             let salt = generate_salt();
             let master_key = MasterKey::from_password(password, &salt)?;
             let (nonce, ciphertext) = master_key.encrypt(&serialized);
-            
+
             VaultFile {
                 salt,
                 nonce,
@@ -104,7 +107,7 @@ impl Vault {
             // Unencrypted vault (no password)
             let salt = generate_salt(); // Still use salt for consistency
             let nonce = secretbox::gen_nonce();
-            
+
             VaultFile {
                 salt,
                 nonce,
@@ -115,7 +118,7 @@ impl Vault {
         };
 
         self.save_vault_file(&vault_file)?;
-        
+
         if password.is_some() {
             let master_key = MasterKey::from_password(password.unwrap(), &vault_file.salt)?;
             self.master_key = Some(master_key);
@@ -131,36 +134,36 @@ impl Vault {
 
     pub fn add_server(&mut self, server: Server) -> Result<()> {
         self.ensure_unlocked()?;
-        
+
         let data = self.data.as_mut().unwrap();
         data.add_server(server);
-        
+
         self.save()?;
         Ok(())
     }
 
     pub fn remove_server(&mut self, id: &uuid::Uuid) -> Result<bool> {
         self.ensure_unlocked()?;
-        
+
         let data = self.data.as_mut().unwrap();
         let removed = data.remove_server(id);
-        
+
         if removed {
             self.save()?;
         }
-        
+
         Ok(removed)
     }
 
     pub fn list_servers(&self) -> Result<&Vec<Server>> {
         self.ensure_unlocked()?;
-        
+
         Ok(&self.data.as_ref().unwrap().servers)
     }
 
     pub fn find_server(&self, id: &uuid::Uuid) -> Result<Option<&Server>> {
         self.ensure_unlocked()?;
-        
+
         Ok(self.data.as_ref().unwrap().find_server(id))
     }
 
@@ -168,7 +171,9 @@ impl Vault {
         self.ensure_unlocked()?;
         let data = self.data.as_mut().unwrap();
         let replaced = data.replace_server(server);
-        if replaced { self.save()?; }
+        if replaced {
+            self.save()?;
+        }
         Ok(replaced)
     }
 
@@ -191,19 +196,38 @@ impl Vault {
 
     fn save_vault_file(&self, vault_file: &VaultFile) -> Result<()> {
         let content = serde_json::to_vec(vault_file)?;
-        
-        // Set restrictive permissions before writing
+
+        let parent = self
+            .data_path
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Vault path has no parent directory"))?;
+        fs::create_dir_all(parent)?;
+
+        let file_name = self
+            .data_path
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("Vault path has no file name"))?
+            .to_string_lossy();
+        let temp_path = parent.join(format!(".{file_name}.{}.tmp", Uuid::new_v4()));
+
         let mut file = fs::OpenOptions::new()
-            .create(true)
+            .create_new(true)
             .write(true)
-            .truncate(true)
-            .open(&self.data_path)?;
-            
+            .open(&temp_path)?;
+
         let mut perms = file.metadata()?.permissions();
         perms.set_mode(0o600); // Read/write for owner only
         file.set_permissions(perms)?;
-        
+
         file.write_all(&content)?;
+        file.sync_all()?;
+        drop(file);
+
+        if let Err(error) = fs::rename(&temp_path, &self.data_path) {
+            let _ = fs::remove_file(&temp_path);
+            return Err(error.into());
+        }
+
         Ok(())
     }
 
@@ -214,30 +238,36 @@ impl Vault {
         let vault_file = if let Some(master_key) = &self.master_key {
             // Encrypted vault: reuse existing salt to keep key derivation stable
             let existing = self.load_vault_file().ok();
-            let salt = existing.as_ref().map(|f| f.salt).unwrap_or_else(generate_salt);
+            let salt = existing
+                .as_ref()
+                .map(|f| f.salt)
+                .unwrap_or_else(generate_salt);
 
             let (nonce, ciphertext) = master_key.encrypt(&serialized);
             VaultFile {
                 salt,
                 nonce,
                 ciphertext,
-                created_at: existing.map(|f| f.created_at).unwrap_or_else(|| Utc::now()),
+                created_at: existing.map(|f| f.created_at).unwrap_or_else(Utc::now),
                 updated_at: Utc::now(),
             }
         } else {
             // Unencrypted vault
             let salt = generate_salt();
             let nonce = secretbox::gen_nonce();
-            
+
             VaultFile {
                 salt,
                 nonce,
                 ciphertext: serialized, // Store unencrypted
-                created_at: self.load_vault_file().map(|f| f.created_at).unwrap_or_else(|_| Utc::now()),
+                created_at: self
+                    .load_vault_file()
+                    .map(|f| f.created_at)
+                    .unwrap_or_else(|_| Utc::now()),
                 updated_at: Utc::now(),
             }
         };
-        
+
         self.save_vault_file(&vault_file)?;
         Ok(())
     }

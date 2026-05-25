@@ -1,12 +1,5 @@
-mod crypto;
-mod models;
-mod vault;
-mod cli;
-mod debug;
-mod tui;
-mod ssh;
-
 use anyhow::Result;
+use portkey::{cli, debug};
 use std::env;
 
 #[tokio::main]
